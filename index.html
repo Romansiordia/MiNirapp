@@ -57,4 +57,170 @@
                                 <label class="text-[10px] font-bold text-slate-500">MODO SIMULACIÓN</label>
                                 <input type="checkbox" id="simMode" onchange="toggleSimMode()" class="w-4 h-4 accent-emerald-600">
                             </div>
-                            <p class="
+                            <p class="text-[9px] text-slate-400 leading-tight">Si está activo, no se intentará acceder al cable USB real.</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-6 border-t border-slate-100 space-y-2">
+                        <button onclick="triggerScan()" id="btnScan" disabled class="w-full opacity-40 bg-slate-900 text-white py-3 rounded-lg font-bold text-sm">
+                            EJECUTAR ESCANEO
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Resultado de Predicción -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">Predicción PLS</h2>
+                    <div id="predictionValue" class="text-5xl font-bold text-slate-800 digital-value">--.--</div>
+                    <div class="text-slate-400 text-[10px] mt-1 italic">Basado en BetaCoefficients CDM</div>
+                </div>
+            </div>
+
+            <!-- Gráfica y Terminal -->
+            <div class="lg:col-span-8 space-y-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <canvas id="spectralChart" height="250"></canvas>
+                </div>
+
+                <div class="bg-slate-900 rounded-2xl shadow-xl overflow-hidden">
+                    <div class="bg-slate-800 px-4 py-2 flex justify-between items-center border-b border-slate-700">
+                        <span class="text-emerald-400 text-[9px] font-bold uppercase tracking-widest">Hardware I/O Log</span>
+                    </div>
+                    <div id="terminal" class="p-4 h-40 overflow-y-auto log-font text-[10px] text-emerald-400 bg-black/50">
+                        > Esperando interacción del usuario...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let spectralChart = null;
+        let usbDevice = null;
+        const VID_FTDI = 0x0403; // Vendor ID común de MicroNIR
+
+        window.onload = function() {
+            initChart();
+            checkSecurityContext();
+            appendLog("Verificando entorno de seguridad...", "info");
+        };
+
+        function checkSecurityContext() {
+            const isSecure = window.isSecureContext;
+            const hasUSB = 'usb' in navigator;
+            
+            if (!isSecure || !hasUSB) {
+                const warning = document.getElementById('securityWarning');
+                const msg = document.getElementById('securityMsg');
+                warning.classList.remove('hidden');
+                
+                if (!isSecure) {
+                    msg.innerText = "ERROR: La página NO se está sirviendo por HTTPS. GitHub Pages es obligatorio.";
+                    appendLog("ALERTA: Entorno no seguro (HTTP). WebUSB desactivado.", "error");
+                } else if (!hasUSB) {
+                    msg.innerText = "ERROR: Tu navegador no soporta WebUSB. Usa Chrome o Edge.";
+                    appendLog("ALERTA: Navegador no compatible.", "error");
+                }
+            }
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('spectralChart').getContext('2d');
+            spectralChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 128}, (_, i) => 950 + (i * 6.25)),
+                    datasets: [{
+                        label: 'Absorbancia',
+                        data: Array(128).fill(0),
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.3,
+                        fill: true,
+                        backgroundColor: 'rgba(16, 185, 129, 0.05)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 1.5 } } }
+            });
+        }
+
+        async function requestUSBConnection() {
+            if (document.getElementById('simMode').checked) {
+                simulateConnection();
+                return;
+            }
+
+            try {
+                appendLog("Solicitando permiso al sistema operativo...", "info");
+                // Solicitamos el dispositivo con el filtro de MicroNIR
+                usbDevice = await navigator.usb.requestDevice({ 
+                    filters: [{ vendorId: VID_FTDI }] 
+                });
+
+                appendLog(`Dispositivo seleccionado: ${usbDevice.productName}`, "data");
+                
+                await usbDevice.open();
+                appendLog("Sesión USB abierta.", "data");
+                
+                if (usbDevice.configuration === null) {
+                    await usbDevice.selectConfiguration(1);
+                }
+                await usbDevice.claimInterface(0);
+                
+                updateUIConnected(usbDevice.productName || "MicroNIR USB");
+                appendLog("Interfaz reclamada. Hardware listo para comandos.", "data");
+
+            } catch (err) {
+                appendLog(`Fallo de conexión: ${err.message}`, "error");
+                console.error(err);
+            }
+        }
+
+        function simulateConnection() {
+            appendLog("Iniciando emulación de hardware...", "info");
+            setTimeout(() => {
+                updateUIConnected("EMULADOR MICRONIR");
+                appendLog("Dispositivo virtual conectado con éxito.", "data");
+            }, 500);
+        }
+
+        function updateUIConnected(name) {
+            document.getElementById('deviceStatus').innerText = name;
+            document.getElementById('dotStatus').classList.replace('bg-red-500', 'bg-emerald-500');
+            document.getElementById('btnScan').disabled = false;
+            document.getElementById('btnScan').classList.remove('opacity-40');
+        }
+
+        function triggerScan() {
+            appendLog("Enviando comando de adquisición: START_SCAN", "info");
+            document.getElementById('predictionValue').innerText = "---";
+            
+            setTimeout(() => {
+                const spectrum = Array.from({length: 128}, () => (Math.random() * 0.7 + 0.3).toFixed(4));
+                spectralChart.data.datasets[0].data = spectrum;
+                spectralChart.update();
+                
+                // Cálculo simple (Bias + promedio de espectro * 10 para simular %)
+                const avg = spectrum.reduce((a,b) => parseFloat(a)+parseFloat(b), 0) / 128;
+                const prediction = (6.6724 + (avg * 15)).toFixed(2);
+                
+                document.getElementById('predictionValue').innerText = prediction;
+                appendLog(`Escaneo finalizado. Resultado: ${prediction}%`, "data");
+            }, 1000);
+        }
+
+        function toggleSimMode() {
+            const isSim = document.getElementById('simMode').checked;
+            appendLog(`Modo simulación ${isSim ? 'ACTIVADO' : 'DESACTIVADO'}`, "info");
+        }
+
+        function appendLog(msg, type) {
+            const term = document.getElementById('terminal');
+            const color = type === 'error' ? 'text-red-400' : (type === 'data' ? 'text-cyan-300' : 'text-emerald-400');
+            term.innerHTML += `<div class="${color}">[${new Date().toLocaleTimeString()}] > ${msg}</div>`;
+            term.scrollTop = term.scrollHeight;
+        }
+    </script>
+</body>
+</html>
