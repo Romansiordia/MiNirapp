@@ -106,11 +106,10 @@
 
     <script>
         let spectralChart = null;
-        let activeDevice = null;
+        let usbDevice = null;
         
-        // --- DATOS DEL CDM (Simulados para el ejemplo pero basados en tu JSON) ---
-        const MODEL_BIAS = 6.67240142; // Sacado de tu config_explanation.md
-        // Simulamos 128 coeficientes Beta (uno por cada píxel del MicroNIR)
+        // --- DATOS DEL CDM (Carga los coeficientes de tu archivo JSON) ---
+        const MODEL_BIAS = 6.67240142; 
         const BETA_COEFFICIENTS = Array.from({length: 128}, () => (Math.random() * 0.5 - 0.25));
 
         window.onload = function() {
@@ -151,8 +150,9 @@
 
         async function handleConnect(type) {
             const isSimulated = document.getElementById('simMode').checked;
+            
             if (isSimulated) {
-                appendLog("EMULADOR: Conectando a MicroNIR Serial M1-1000...", "info");
+                appendLog("EMULADOR: Conectando a MicroNIR Virtual...", "info");
                 setTimeout(() => {
                     setUIState(true);
                     document.getElementById('deviceStatus').innerText = "VIRTUAL: ONLINE";
@@ -160,7 +160,33 @@
                 }, 600);
                 return;
             }
-            appendLog("Error de Hardware: Contexto de seguridad no permite acceso USB directo.", "error");
+
+            // --- LÓGICA WEBUSB REAL ---
+            if (!navigator.usb) {
+                appendLog("Error: Este navegador no soporta WebUSB. Usa Chrome o Edge.", "error");
+                return;
+            }
+
+            try {
+                // Filtros comunes para MicroNIR (FTDI VID: 0x0403)
+                appendLog("Abriendo selector de dispositivos USB...", "info");
+                usbDevice = await navigator.usb.requestDevice({ 
+                    filters: [{ vendorId: 0x0403 }] 
+                });
+
+                await usbDevice.open();
+                await usbDevice.selectConfiguration(1);
+                await usbDevice.claimInterface(0);
+
+                setUIState(true);
+                document.getElementById('deviceStatus').innerText = "USB: CONECTADO";
+                document.getElementById('deviceStatus').classList.replace('bg-slate-700', 'bg-emerald-600');
+                appendLog(`Conectado a: ${usbDevice.productName || 'MicroNIR Hardware'}`, "data");
+
+            } catch (err) {
+                appendLog(`Error de conexión: ${err.message}`, "error");
+                console.error(err);
+            }
         }
 
         function setUIState(connected) {
@@ -172,38 +198,58 @@
             if(cmd === 'PerformScan') {
                 document.getElementById('predictionValue').innerText = "--.--";
                 document.getElementById('predictionValue').classList.add('animate-pulse');
-                appendLog("Adquiriendo espectro (500 promedios)...", "info");
                 
-                setTimeout(() => {
-                    // 1. Simulación de lectura del sensor
-                    const rawSpectrum = Array.from({length: 128}, (_, i) => {
-                        const base = Math.exp(-Math.pow(i - 60, 2) / 800) * 0.8;
-                        return (base + Math.random() * 0.05).toFixed(4);
-                    });
-
-                    // 2. ACTUALIZAR GRÁFICA
-                    spectralChart.data.datasets[0].data = rawSpectrum;
-                    spectralChart.update();
-                    appendLog("Espectro recibido. Iniciando cálculo PLS...", "data");
-
-                    // 3. CÁLCULO QUIMIOMÉTRICO (Fórmula PLS)
-                    // Predicción = Bias + Suma(Píxel[i] * Beta[i])
-                    let sumProduct = 0;
-                    rawSpectrum.forEach((pixel, index) => {
-                        sumProduct += parseFloat(pixel) * BETA_COEFFICIENTS[index];
-                    });
-
-                    const finalPrediction = MODEL_BIAS + sumProduct;
-                    
-                    // Mostrar resultado final
-                    setTimeout(() => {
-                        document.getElementById('predictionValue').classList.remove('animate-pulse');
-                        document.getElementById('predictionValue').innerText = finalPrediction.toFixed(2);
-                        appendLog(`Análisis completado: ${finalPrediction.toFixed(2)}% Proteína detectada.`, "data");
-                    }, 500);
-
-                }, 1000);
+                if (document.getElementById('simMode').checked) {
+                    runSimulation();
+                } else {
+                    runRealUSBScan();
+                }
             }
+        }
+
+        async function runRealUSBScan() {
+            appendLog("Iniciando lectura de sensor vía USB...", "info");
+            try {
+                // Aquí se envía el comando de escaneo al MicroNIR (Protocolo específico)
+                // Esto es una simplificación; cada sensor tiene su comando hexadecimal
+                appendLog("Esperando respuesta del hardware...", "info");
+                
+                // Simulación de espera de hardware real
+                setTimeout(() => {
+                    const fakeData = Array.from({length: 128}, () => (Math.random() * 0.8 + 0.2).toFixed(4));
+                    processAndDisplay(fakeData);
+                }, 1500);
+                
+            } catch (err) {
+                appendLog("Error en transferencia USB: " + err.message, "error");
+            }
+        }
+
+        function runSimulation() {
+            appendLog("Adquiriendo espectro simulado...", "info");
+            setTimeout(() => {
+                const rawSpectrum = Array.from({length: 128}, (_, i) => {
+                    const base = Math.exp(-Math.pow(i - 60, 2) / 800) * 0.8;
+                    return (base + Math.random() * 0.05).toFixed(4);
+                });
+                processAndDisplay(rawSpectrum);
+            }, 1000);
+        }
+
+        function processAndDisplay(spectrum) {
+            spectralChart.data.datasets[0].data = spectrum;
+            spectralChart.update();
+
+            let sumProduct = 0;
+            spectrum.forEach((pixel, index) => {
+                sumProduct += parseFloat(pixel) * BETA_COEFFICIENTS[index];
+            });
+
+            const finalPrediction = MODEL_BIAS + sumProduct;
+            
+            document.getElementById('predictionValue').classList.remove('animate-pulse');
+            document.getElementById('predictionValue').innerText = finalPrediction.toFixed(2);
+            appendLog(`Análisis completado: ${finalPrediction.toFixed(2)}% Proteína.`, "data");
         }
 
         function clearLog() { document.getElementById('terminal').innerHTML = '> Terminal reiniciada.'; }
