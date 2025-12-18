@@ -3,256 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MicroNIR Controller - Maíz PLS</title>
+    <title>MicroNIR - Control por Botón Físico</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .gradient-bg { background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%); }
-        .card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        .terminal-log { background: rgba(0, 0, 0, 0.7); box-shadow: inset 0 0 10px #000; }
+        .lcd-display { background: #16213e; border: 2px solid #3282b8; text-shadow: 0 0 10px #3282b8; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .animate-pulse-fast { animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
-<body class="gradient-bg min-h-screen text-white font-sans p-4">
+<body class="gradient-bg min-h-screen text-slate-200 font-mono p-4">
 
     <div class="max-w-4xl mx-auto">
-        <header class="flex justify-between items-center mb-8">
+        <header class="mb-6 border-b border-slate-700 pb-4 flex justify-between items-center">
             <div>
-                <h1 class="text-3xl font-bold text-blue-400">MicroNIR <span class="text-white">Analysis</span></h1>
-                <p class="text-gray-400">Configuración: M1-0000343 (Modo Forzado)</p>
+                <h1 class="text-2xl font-bold text-blue-400">MicroNIR <span class="text-white">Hardware Sync</span></h1>
+                <p class="text-xs text-slate-500 mt-1">M1-0000343 | Detección de Botón Físico</p>
             </div>
-            <div id="statusIndicator" class="px-4 py-2 rounded-full bg-red-900/30 border border-red-500 text-red-400 text-sm">
-                Desconectado
+            <div id="btnIndicator" class="hidden flex items-center space-x-2 text-[10px] bg-blue-900/30 px-3 py-1 rounded-full border border-blue-500 text-blue-300">
+                <span class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span>
+                <span>BOTÓN DISPONIBLE</span>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="md:col-span-1 space-y-4">
-                <div class="card p-6 rounded-2xl">
-                    <h2 class="text-xl font-semibold mb-4 italic text-blue-300">Sync Hardware</h2>
-                    <button id="btnConnect" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all mb-3 shadow-lg">
-                        Conectar Sensor
-                    </button>
-                    
-                    <div class="mb-4">
-                        <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Ajuste de Lectura (XML)</label>
-                        <select id="methodSelect" class="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-sm text-white outline-none focus:border-blue-500">
-                            <option value="12.5">Default (12.5ms / 500 avg)</option>
-                            <option value="20">Cerdos (20ms / 500 avg)</option>
-                        </select>
-                    </div>
-
-                    <button id="btnScan" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-30 mb-3 shadow-green-900/20" disabled>
-                        Iniciar Escaneo
-                    </button>
-                    
-                    <button id="btnReset" class="w-full bg-orange-700 hover:bg-orange-600 text-white font-bold py-2 rounded-xl transition-all text-xs disabled:opacity-30" disabled>
-                        ⚠️ Forzar Reset de Buffer
-                    </button>
-                    
-                    <div class="mt-4 pt-4 border-t border-gray-700">
-                        <label class="flex items-center space-x-3 cursor-pointer">
-                            <input type="checkbox" id="simMode" class="form-checkbox h-5 w-5 text-blue-600">
-                            <span class="text-gray-300 text-sm">Modo Simulación</span>
-                        </label>
-                    </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Panel de Control -->
+            <div class="md:col-span-1 space-y-3">
+                <button id="btnConnect" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold text-sm transition-colors border-b-4 border-blue-800">
+                    CONECTAR
+                </button>
+                
+                <div class="bg-slate-800/50 p-3 rounded border border-slate-700 text-center">
+                    <div id="statusTag" class="text-[10px] text-slate-500 mb-1 uppercase">Sensor Desconectado</div>
+                    <div id="triggerStatus" class="text-xs font-bold text-slate-400 italic">Esperando hardware...</div>
                 </div>
 
-                <div class="card p-6 rounded-2xl border-t-2 border-blue-500">
-                    <h2 class="text-xl font-semibold mb-2 text-center text-blue-400">Predicción</h2>
-                    <div id="resultValue" class="text-5xl font-mono text-center py-4">--</div>
-                    <p class="text-center text-gray-400 text-[10px] uppercase tracking-widest">Modelo PLS Activo</p>
+                <div class="bg-slate-900/80 p-4 rounded-lg border border-slate-700 space-y-4">
+                    <div class="text-center">
+                        <div class="text-[10px] text-blue-400 uppercase tracking-tighter">Proteína Est.</div>
+                        <div id="predictionValue" class="text-3xl font-bold text-white">--.--</div>
+                    </div>
+                    <div class="text-center border-t border-slate-800 pt-2">
+                        <div class="text-[10px] text-green-400 uppercase tracking-tighter">Humedad Rel.</div>
+                        <div id="humidityValue" class="text-xl font-bold text-white">--.--</div>
+                    </div>
                 </div>
+                
+                <p class="text-[9px] text-slate-500 px-1 italic leading-tight">
+                    * El botón físico sincroniza la captura de datos del flujo autónomo.
+                </p>
             </div>
 
-            <div class="md:col-span-2 space-y-4">
-                <div class="card p-6 rounded-2xl overflow-hidden">
-                    <canvas id="spectrumChart" height="250"></canvas>
+            <!-- Contenido Principal -->
+            <div class="md:col-span-3 space-y-4">
+                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 h-[300px]">
+                    <canvas id="liveChart"></canvas>
                 </div>
-                <div id="log" class="bg-black/80 p-4 rounded-xl font-mono text-[11px] text-blue-300 h-44 overflow-y-auto border border-blue-900/50 shadow-inner">
-                    > Sistema listo para anular AutonomousCollect...
+
+                <div id="terminal" class="terminal-log p-4 rounded-lg h-40 overflow-y-auto text-[11px] border border-slate-800 font-mono">
+                    <div class="text-blue-400">> SISTEMA INICIALIZADO.</div>
+                    <div class="text-slate-400">> Esperando conexión USB para activar el botón físico.</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Coeficientes y Bias del XML analizado
-        const BIAS = -1.6224;
-        const BETA_COEFFICIENTS = Array(128).fill(0).map(() => (Math.random() * 0.1)); 
-
         let device;
         let chart;
+        let isListening = false;
 
-        function addLog(msg, status = 'info') {
-            const logDiv = document.getElementById('log');
-            if (logDiv) {
-                let color = 'text-blue-300';
-                if(status === 'error') color = 'text-red-400';
-                if(status === 'success') color = 'text-green-400';
-                if(status === 'warn') color = 'text-orange-400';
-                
-                const time = new Date().toLocaleTimeString();
-                logDiv.innerHTML += `<div class="${color}">[${time}] > ${msg}</div>`;
-                logDiv.scrollTop = logDiv.scrollHeight;
-            }
+        // Función para añadir mensajes al log
+        function log(msg, type = 'info') {
+            const t = document.getElementById('terminal');
+            const colors = { 
+                info: 'text-slate-400', 
+                error: 'text-red-500', 
+                success: 'text-green-500', 
+                warn: 'text-yellow-500' 
+            };
+            const time = new Date().toLocaleTimeString();
+            t.innerHTML += `<div class="${colors[type]}">[${time}] ${msg}</div>`;
+            t.scrollTop = t.scrollHeight;
         }
 
-        const ctx = document.getElementById('spectrumChart').getContext('2d');
+        // Configuración de Chart.js
+        const ctx = document.getElementById('liveChart').getContext('2d');
         chart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: Array.from({length: 128}, (_, i) => 900 + (i * 6.25)),
+                labels: Array.from({length: 128}, (_, i) => (900 + i*6.25).toFixed(1)),
                 datasets: [{
-                    label: 'Absorbancia (nm)',
-                    borderColor: '#60a5fa',
-                    borderWidth: 2,
+                    label: 'Absorbancia',
                     data: Array(128).fill(0),
-                    fill: false,
+                    borderColor: '#3b82f6',
+                    borderWidth: 2,
                     pointRadius: 0,
-                    tension: 0.2
+                    fill: false,
+                    tension: 0.1
                 }]
             },
             options: {
+                maintainAspectRatio: false,
                 responsive: true,
                 scales: {
-                    y: { grid: { color: '#1f2937' }, ticks: { color: '#6b7280' } },
-                    x: { grid: { color: '#1f2937' }, ticks: { color: '#6b7280' } }
+                    y: { 
+                        grid: { color: '#1e293b' }, 
+                        ticks: { color: '#64748b' },
+                        suggestedMax: 1.0,
+                        suggestedMin: 0
+                    },
+                    x: { 
+                        grid: { color: '#1e293b' }, 
+                        ticks: { color: '#64748b', maxRotation: 0 } 
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
                 }
             }
         });
 
-        async function connectDevice() {
+        // Evento de conexión
+        document.getElementById('btnConnect').addEventListener('click', async () => {
             try {
-                // Filtro para el chip FTDI del MicroNIR
+                log("Buscando sensor MicroNIR (Vendor 0403)...");
                 device = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x0403 }] });
+                
                 await device.open();
-                
-                // Reset de hardware para intentar detener el modo autónomo
-                await device.reset(); 
-                
                 await device.selectConfiguration(1);
                 await device.claimInterface(0);
                 
-                document.getElementById('statusIndicator').textContent = "CONECTADO (M1-0000343)";
-                document.getElementById('statusIndicator').className = "px-4 py-2 rounded-full bg-green-900/30 border border-green-500 text-green-400 text-sm";
-                document.getElementById('btnScan').disabled = false;
-                document.getElementById('btnReset').disabled = false;
+                log("Conexión USB establecida.", "success");
+                document.getElementById('statusTag').textContent = "M1-0000343 CONECTADO";
+                document.getElementById('statusTag').className = "text-[10px] text-green-400 mb-1 uppercase font-bold";
+                document.getElementById('btnIndicator').classList.remove('hidden');
+                document.getElementById('triggerStatus').textContent = "LISTO: PRESIONE BOTÓN FÍSICO";
+                document.getElementById('triggerStatus').classList.remove('text-slate-400');
+                document.getElementById('triggerStatus').classList.add('text-green-400');
                 
-                addLog("Sensor M1-0000343 vinculado. Iniciando lámpara...", "success");
-                
-                // Comando de encendido de lámpara
-                await device.controlTransferOut({
-                    requestType: 'vendor', recipient: 'device', request: 0x01, value: 0x0001, index: 0x0000
-                });
-            } catch (err) {
-                addLog("Error conexión: " + err.message, "error");
-            }
-        }
-
-        async function forceResetBuffer() {
-            if(!device) return;
-            addLog("Enviando comando de interrupción al controlador...", "warn");
-            try {
-                // Intentamos vaciar el buffer leyendo múltiples veces sin procesar
-                for(let i=0; i<10; i++) {
-                    await device.transferIn(1, 64).catch(()=>{});
+                if (!isListening) {
+                    isListening = true;
+                    startButtonListener();
                 }
-                // Reset lógico
-                await device.controlTransferOut({
-                    requestType: 'vendor', recipient: 'device', request: 0x00, value: 0x0000, index: 0x0000
-                });
-                addLog("Buffer purgado. Intente escanear nuevamente.", "success");
-            } catch(e) {
-                addLog("Error en reset: " + e.message, "error");
+            } catch (err) {
+                log("Error: " + err.message, "error");
             }
-        }
+        });
 
-        async function performScan() {
-            const isSim = document.getElementById('simMode').checked;
-            const integrationTime = parseFloat(document.getElementById('methodSelect').value);
-            let spectrumData = new Float32Array(128);
-
-            if (isSim) {
-                addLog(`Simulando espectro (${integrationTime}ms)...`);
-                spectrumData = spectrumData.map(() => (Math.random() * 0.3) + 0.2);
-                updateUI(spectrumData);
-                return;
-            }
-
-            try {
-                document.getElementById('btnScan').disabled = true;
-                addLog("Estrategia: Bypass de AutonomousCollect...");
-                
-                // PASO 1: Intentamos "vaciar" el chorro de datos que envía el sensor solo
-                addLog("Sincronizando flujo de bytes...");
-                let success = false;
-                let dataBuffer;
-
-                // Reintentos agresivos de lectura
-                for (let i = 0; i < 30; i++) {
-                    try {
-                        // Leemos lo que sea que esté enviando (el sensor está en modo autónomo)
-                        let result = await device.transferIn(1, 256);
+        // Bucle de escucha continua del flujo USB
+        async function startButtonListener() {
+            log("Escuchador de hardware activado. Sincronizando con flujo autónomo...");
+            
+            while (device && device.opened) {
+                try {
+                    // El sensor envía datos de 256 bytes (128 canales x 2 bytes)
+                    let result = await device.transferIn(1, 256);
+                    
+                    if (result.data && result.data.byteLength >= 256) {
+                        processSpectrum(result.data.buffer);
+                        log("¡Dato capturado mediante botón/flujo!", "success");
                         
-                        if (result.data && result.data.byteLength >= 256) {
-                            addLog("¡Dato detectado en el flujo autónomo!", "success");
-                            dataBuffer = result.data.buffer;
-                            success = true;
-                            break;
-                        }
-                    } catch(e) {
-                        // Fallo silencioso en reintentos
+                        // Respuesta visual en la interfaz
+                        const statusEl = document.getElementById('triggerStatus');
+                        statusEl.textContent = ">>> LECTURA RECIBIDA <<<";
+                        statusEl.classList.add('animate-pulse-fast');
+                        
+                        setTimeout(() => {
+                            statusEl.textContent = "LISTO: PRESIONE BOTÓN FÍSICO";
+                            statusEl.classList.remove('animate-pulse-fast');
+                        }, 2000);
                     }
-                    await new Promise(r => setTimeout(r, 100));
-                }
-
-                if (!success) {
-                    addLog("El sensor no está enviando datos. Intentando disparo manual...", "warn");
-                    // Intento de disparo manual si el autónomo falló
-                    await device.controlTransferOut({
-                        requestType: 'vendor', recipient: 'device', request: 0x02, value: 0x0000, index: 0x0000
-                    });
-                    await new Promise(r => setTimeout(r, 1000));
-                    let retry = await device.transferIn(1, 256);
-                    if(retry.data && retry.data.byteLength >= 256) {
-                        dataBuffer = retry.data.buffer;
-                        success = true;
+                } catch (e) {
+                    // Si hay timeout es porque el sensor no está enviando nada aún, reintentamos
+                    if (e.name !== 'NetworkError') {
+                        await new Promise(r => setTimeout(r, 100));
                     }
                 }
-
-                if (success && dataBuffer) {
-                    const view = new DataView(dataBuffer);
-                    // El MicroNIR envía 2 bytes de cabecera a veces, ajustamos offset
-                    const offset = (dataBuffer.byteLength > 256) ? 2 : 0;
-                    for (let i = 0; i < 128; i++) {
-                        spectrumData[i] = view.getUint16(offset + (i * 2), true) / 65535.0;
-                    }
-                    updateUI(spectrumData);
-                    addLog("Espectro capturado y procesado.");
-                } else {
-                    addLog("Fallo total de sincronía. Use 'Reset de Buffer'.", "error");
-                }
-            } catch (err) {
-                addLog("Error: " + err.message, "error");
-            } finally {
-                document.getElementById('btnScan').disabled = false;
             }
+            isListening = false;
         }
 
-        function updateUI(data) {
-            chart.data.datasets[0].data = Array.from(data);
-            chart.update();
-
-            // Cálculo PLS Simplificado (Bias + Sumaproducto)
-            let prediction = BIAS;
+        // Función para procesar y mostrar los datos
+        function processSpectrum(buffer) {
+            const view = new DataView(buffer);
+            const rawData = [];
+            
+            // Decodificación de 128 canales (Uint16, Little Endian)
             for (let i = 0; i < 128; i++) {
-                prediction += data[i] * BETA_COEFFICIENTS[i];
+                let val = view.getUint16(i * 2, true) / 65535.0;
+                rawData.push(val);
             }
-            document.getElementById('resultValue').textContent = Math.abs(prediction).toFixed(4);
-        }
+            
+            // Actualizar gráfico
+            chart.data.datasets[0].data = rawData;
+            chart.update('none');
 
-        document.getElementById('btnConnect').addEventListener('click', connectDevice);
-        document.getElementById('btnScan').addEventListener('click', performScan);
-        document.getElementById('btnReset').addEventListener('click', forceResetBuffer);
+            // Lógica de predicción simulada basada en Bias -1.6224
+            const avg = rawData.reduce((a, b) => a + b, 0) / 128;
+            
+            // Estos cálculos son demostrativos basados en la estructura del sensor
+            const protein = Math.abs(-1.6224 + (avg * 15)).toFixed(2);
+            const humidity = (avg * 92).toFixed(2);
+            
+            document.getElementById('predictionValue').textContent = protein;
+            document.getElementById('humidityValue').textContent = humidity;
+        }
     </script>
 </body>
 </html>
