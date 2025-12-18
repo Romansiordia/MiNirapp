@@ -71,10 +71,11 @@
         let chart;
 
         // Función para registrar mensajes en la consola de la UI
-        function addLog(msg) {
+        function addLog(msg, isError = false) {
             const logDiv = document.getElementById('log');
             if (logDiv) {
-                logDiv.innerHTML += `<div>> ${msg}</div>`;
+                const colorClass = isError ? 'text-red-400' : 'text-green-400';
+                logDiv.innerHTML += `<div class="${colorClass}">> ${msg}</div>`;
                 logDiv.scrollTop = logDiv.scrollHeight;
             }
         }
@@ -123,7 +124,7 @@
                 });
                 addLog("Comando de encendido enviado.");
             } catch (err) {
-                addLog("Error conexión: " + err.message);
+                addLog("Error conexión: " + err.message, true);
             }
         }
 
@@ -143,16 +144,23 @@
                         requestType: 'vendor', recipient: 'device', request: 0x02, value: 0x0000, index: 0x0000
                     });
 
-                    // Esperar el tiempo de integración del sensor
-                    await new Promise(r => setTimeout(r, 600));
+                    // Aumentamos el tiempo de espera por si el sensor es lento
+                    addLog("Esperando respuesta del hardware (1.5s)...");
+                    await new Promise(r => setTimeout(r, 1500));
 
                     addLog("Solicitando datos al buffer...");
                     const result = await device.transferIn(1, 256); 
                     
                     // Validación de longitud de datos para evitar errores de DataView
                     if (result.data.byteLength < 256) {
-                        addLog(`ERROR: Se esperaban 256 bytes pero llegaron ${result.data.byteLength}.`);
-                        addLog("El sensor no devolvió el espectro completo.");
+                        // Extraemos los bytes recibidos para diagnóstico
+                        const hexData = Array.from(new Uint8Array(result.data.buffer))
+                                             .map(b => b.toString(16).padStart(2, '0'))
+                                             .join(' ');
+                        
+                        addLog(`ERROR: Se esperaban 256 bytes pero llegaron ${result.data.byteLength}.`, true);
+                        addLog(`Contenido recibido (HEX): ${hexData}`, true);
+                        addLog("Sugerencia: Aumentar el tiempo de integración o verificar la alimentación del sensor.", true);
                         return;
                     }
 
@@ -163,7 +171,7 @@
                     }
                     addLog("Espectro recibido correctamente.");
                 } catch (err) {
-                    addLog("Error lectura: " + err.message);
+                    addLog("Error lectura: " + err.message, true);
                     return;
                 }
             }
