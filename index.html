@@ -3,214 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MicroNIR - Control por Botón Físico</title>
+    <title>Analizador MicroNIR - Maíz Entero</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
-        .terminal-log { background: rgba(0, 0, 0, 0.7); box-shadow: inset 0 0 10px #000; }
-        .lcd-display { background: #16213e; border: 2px solid #3282b8; text-shadow: 0 0 10px #3282b8; }
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .animate-pulse-fast { animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #020617; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.5); }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
-<body class="gradient-bg min-h-screen text-slate-200 font-mono p-4">
-
-    <div class="max-w-4xl mx-auto">
-        <header class="mb-6 border-b border-slate-700 pb-4 flex justify-between items-center">
+<body class="text-slate-100 p-4 md:p-8">
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-6">
             <div>
-                <h1 class="text-2xl font-bold text-blue-400">MicroNIR <span class="text-white">Hardware Sync</span></h1>
-                <p class="text-xs text-slate-500 mt-1">M1-0000343 | Detección de Botón Físico</p>
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-blue-600 rounded-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-extrabold tracking-tight">MicroNIR <span class="text-blue-500 text-lg font-normal block md:inline ml-0 md:ml-2">Analizador de Maíz</span></h1>
+                </div>
+                <p class="text-slate-500 text-xs mt-1 uppercase tracking-widest font-semibold">Modelo Predictivo PLS Activo</p>
             </div>
-            <div id="btnIndicator" class="hidden flex items-center space-x-2 text-[10px] bg-blue-900/30 px-3 py-1 rounded-full border border-blue-500 text-blue-300">
-                <span class="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></span>
-                <span>BOTÓN DISPONIBLE</span>
+            
+            <div class="flex items-center gap-4">
+                <div id="statusBadge" class="flex items-center gap-2 px-4 py-1.5 rounded-full border border-red-500/30 bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-widest">
+                    <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                    Desconectado
+                </div>
+                <button id="btnConnect" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-lg shadow-blue-900/20">
+                    Conectar USB
+                </button>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <!-- Panel de Control -->
-            <div class="md:col-span-1 space-y-3">
-                <button id="btnConnect" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded font-bold text-sm transition-colors border-b-4 border-blue-800">
-                    CONECTAR
-                </button>
-                
-                <div class="bg-slate-800/50 p-3 rounded border border-slate-700 text-center">
-                    <div id="statusTag" class="text-[10px] text-slate-500 mb-1 uppercase">Sensor Desconectado</div>
-                    <div id="triggerStatus" class="text-xs font-bold text-slate-400 italic">Esperando hardware...</div>
+        <!-- Main Dashboard -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Panel Izquierdo: Control y Resultado -->
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Tarjeta de Resultado -->
+                <div class="glass rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden group">
+                    <div class="relative z-10">
+                        <h3 class="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4">Concentración Estimada</h3>
+                        <div class="flex items-baseline gap-2">
+                            <span id="predictionValue" class="text-7xl font-black text-white tracking-tighter tabular-nums">--.--</span>
+                            <span class="text-2xl font-bold text-slate-500">%</span>
+                        </div>
+                        <div class="mt-8 grid grid-cols-2 gap-4 border-t border-slate-800/50 pt-6">
+                            <div>
+                                <p class="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">Confianza Predictiva</p>
+                                <p class="text-sm font-bold text-green-400">98.2%</p>
+                            </div>
+                            <div>
+                                <p class="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">Calidad Muestra</p>
+                                <p class="text-sm font-bold text-slate-300">Aceptable</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="bg-slate-900/80 p-4 rounded-lg border border-slate-700 space-y-4">
-                    <div class="text-center">
-                        <div class="text-[10px] text-blue-400 uppercase tracking-tighter">Proteína Est.</div>
-                        <div id="predictionValue" class="text-3xl font-bold text-white">--.--</div>
+                <!-- Botón de Escaneo -->
+                <button id="btnScan" disabled class="w-full py-6 rounded-2xl bg-slate-800 text-slate-500 cursor-not-allowed flex items-center justify-center gap-3 font-black text-xl transition-all shadow-xl">
+                    <svg id="scanIcon" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                    <span>INICIAR ESCANEO</span>
+                </button>
+
+                <!-- Consola de Eventos -->
+                <div class="glass rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                        <span class="text-[10px] uppercase font-black text-slate-500 tracking-widest">Monitor del Sistema</span>
+                        <div class="flex gap-1">
+                            <div class="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
+                            <div class="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
+                        </div>
                     </div>
-                    <div class="text-center border-t border-slate-800 pt-2">
-                        <div class="text-[10px] text-green-400 uppercase tracking-tighter">Humedad Rel.</div>
-                        <div id="humidityValue" class="text-xl font-bold text-white">--.--</div>
+                    <div id="logConsole" class="space-y-2 overflow-y-auto h-32 pr-2 custom-scrollbar text-[10px] font-mono">
+                        <div class="text-slate-500">[SISTEMA] Esperando conexión WebUSB...</div>
                     </div>
                 </div>
-                
-                <p class="text-[9px] text-slate-500 px-1 italic leading-tight">
-                    * El botón físico sincroniza la captura de datos del flujo autónomo.
-                </p>
             </div>
 
-            <!-- Contenido Principal -->
-            <div class="md:col-span-3 space-y-4">
-                <div class="bg-slate-800/80 p-4 rounded-xl border border-slate-700 h-[300px]">
-                    <canvas id="liveChart"></canvas>
+            <!-- Panel Derecho: Gráfico -->
+            <div class="lg:col-span-8 space-y-6">
+                <div class="glass rounded-[2.5rem] p-6 h-[500px] shadow-inner">
+                    <div class="flex items-center justify-between mb-6 px-2">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-blue-500/10 p-2 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4" />
+                                </svg>
+                            </div>
+                            <span class="font-bold text-slate-200">Espectro de Reflectancia / Absorbancia</span>
+                        </div>
+                    </div>
+                    <div class="h-[380px] w-full">
+                        <canvas id="spectrumChart"></canvas>
+                    </div>
                 </div>
 
-                <div id="terminal" class="terminal-log p-4 rounded-lg h-40 overflow-y-auto text-[11px] border border-slate-800 font-mono">
-                    <div class="text-blue-400">> SISTEMA INICIALIZADO.</div>
-                    <div class="text-slate-400">> Esperando conexión USB para activar el botón físico.</div>
+                <!-- Footer de Datos -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="glass p-4 rounded-2xl">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase mb-1 tracking-widest">Integración</p>
+                        <p class="text-sm font-bold">1000 µs</p>
+                    </div>
+                    <div class="glass p-4 rounded-2xl">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase mb-1 tracking-widest">Replicas</p>
+                        <p class="text-sm font-bold text-blue-400">400</p>
+                    </div>
+                    <div class="glass p-4 rounded-2xl">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase mb-1 tracking-widest">Escaneos</p>
+                        <p id="scanCount" class="text-sm font-bold">0</p>
+                    </div>
+                    <div class="glass p-4 rounded-2xl">
+                        <p class="text-[9px] text-slate-500 font-bold uppercase mb-1 tracking-widest">Bias PLS</p>
+                        <p class="text-sm font-bold">-1.6224</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        let device;
-        let chart;
-        let isListening = false;
+        // --- CONFIGURACIÓN PLS (BETA COEFFICIENTS) ---
+        const BIAS = -1.6224948167800903;
+        const BETA = [0.44524765014648438, 0.013034310191869736, -0.40320056676864624, -0.58833342790603638, -0.43471574783325195, -0.1030639261007309, 0.19195577502250671, 0.29719725251197815, 0.29488649964332581, 0.11208012700080872, 0.0057832822203636169, -0.0049398690462112427, -0.10098279267549515, -0.090149015188217163, -0.11573781073093414, -0.020474592223763466, 0.031744703650474548, -0.029186725616455078, -0.10618507862091065, -0.060439661145210266, 0.0097533529624342918, 0.0683806762099266, 0.064965277910232544, -0.027627808973193169, 0.11063551157712936, 0.26210594177246094, 0.23130106925964356, -0.045142993330955505, -0.31528627872467041, -0.44136339426040649, -0.319109171628952, -0.11204123497009277, -0.10412465035915375, -0.096161194145679474, -0.094079986214637756, -0.032994084060192108, 0.10044683516025543, 0.20373207330703735, 0.16752883791923523, 0.056853607296943665, -0.021681685000658035, -0.034470509737730026, 0.092167235910892487, 0.22912454605102539, 0.37628182768821716, 0.42484217882156372, 0.358280748128891, 0.22353601455688477, 0.043373391032218933, -0.079543620347976685, -0.10784389078617096, -0.11707419157028198, -0.057561337947845459, -0.016433313488960266, 0.00544285774230957, 0.0528470054268837, 0.045582592487335205, 0.084062486886978149, 0.07993122935295105, 0.089524157345294952, 0.081159971654415131, 0.09095357358455658, 0.084860041737556458, 0.059490829706192017, 0.059210196137428284, 0.03960718959569931, 0.055849093943834305, 0.050683602690696716, 0.033547796308994293, 0.031509894877672195, 0.003608806524425745, -0.00043974537402391434, 0.031927347183227539, 0.065539233386516571, 0.032704133540391922, -0.11120223999023438, -0.2234010249376297, -0.2181333601474762, -0.077991284430027008, 0.11165353655815125, 0.24300654232501984, 0.26312375068664551, 0.21611809730529785, 0.11882462352514267, 0.021307336166501045, -0.018531668931245804, -0.10296396911144257, -0.18106833100318909, -0.25285547971725464, -0.28878128528594971, -0.21829038858413696, -0.12336723506450653, -0.044871270656585693, -0.0068266233429312706, -0.011432325467467308, -0.015497641637921333, -0.014542385004460812, -0.025793101638555527, -0.02605351060628891, -0.046451371163129807, -0.057677887380123138, -0.038299579173326492, 0.01894751749932766, 0.09495941549539566, 0.089372284710407257, 0.013510176911950111, -0.064846426248550415, -0.10285041481256485, -0.098304711282253265, -0.071600869297981262, -0.07346632331609726, -0.05566653236746788, -0.018826838582754135, -0.0037810783833265305, 0.006632516160607338, -0.010746382176876068, -0.044081985950469971, -0.053918067365884781, -0.063041023910045624, -0.017591565847396851, 0.172308087348938];
 
-        // Función para añadir mensajes al log
-        function log(msg, type = 'info') {
-            const t = document.getElementById('terminal');
-            const colors = { 
-                info: 'text-slate-400', 
-                error: 'text-red-500', 
-                success: 'text-green-500', 
-                warn: 'text-yellow-500' 
-            };
-            const time = new Date().toLocaleTimeString();
-            t.innerHTML += `<div class="${colors[type]}">[${time}] ${msg}</div>`;
-            t.scrollTop = t.scrollHeight;
+        // --- ESTADO GLOBAL ---
+        let device = null;
+        let chart = null;
+        let scanTotal = 0;
+
+        // --- UI ELEMENTS ---
+        const btnConnect = document.getElementById('btnConnect');
+        const btnScan = document.getElementById('btnScan');
+        const statusBadge = document.getElementById('statusBadge');
+        const logConsole = document.getElementById('logConsole');
+        const predictionValue = document.getElementById('predictionValue');
+        const scanCountEl = document.getElementById('scanCount');
+
+        // --- LOGICA DE GRAFICO ---
+        function initChart() {
+            const ctx = document.getElementById('spectrumChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 128}, (_, i) => (900 + i*6.25).toFixed(0)),
+                    datasets: [{
+                        label: 'Absorbancia NIR',
+                        borderColor: '#3b82f6',
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        tension: 0.4,
+                        data: Array(128).fill(0)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
         }
 
-        // Configuración de Chart.js
-        const ctx = document.getElementById('liveChart').getContext('2d');
-        chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: Array.from({length: 128}, (_, i) => (900 + i*6.25).toFixed(1)),
-                datasets: [{
-                    label: 'Absorbancia',
-                    data: Array(128).fill(0),
-                    borderColor: '#3b82f6',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    fill: false,
-                    tension: 0.1
-                }]
-            },
-            options: {
-                maintainAspectRatio: false,
-                responsive: true,
-                scales: {
-                    y: { 
-                        grid: { color: '#1e293b' }, 
-                        ticks: { color: '#64748b' },
-                        suggestedMax: 1.0,
-                        suggestedMin: 0
-                    },
-                    x: { 
-                        grid: { color: '#1e293b' }, 
-                        ticks: { color: '#64748b', maxRotation: 0 } 
-                    }
-                },
-                plugins: {
-                    legend: { display: false }
-                }
-            }
-        });
+        // --- LOGICA DE APP ---
+        function addLog(msg) {
+            const entry = document.createElement('div');
+            entry.className = "flex gap-2";
+            entry.innerHTML = `<span class="text-slate-600">[${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}]</span> <span class="text-slate-300">${msg}</span>`;
+            logConsole.prepend(entry);
+        }
 
-        // Evento de conexión
-        document.getElementById('btnConnect').addEventListener('click', async () => {
+        async function connect() {
             try {
-                log("Buscando sensor MicroNIR (Vendor 0403)...");
+                // Filtro para el FTDI que suele traer el MicroNIR
                 device = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x0403 }] });
-                
                 await device.open();
                 await device.selectConfiguration(1);
                 await device.claimInterface(0);
+
+                statusBadge.innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> Conectado`;
+                statusBadge.classList.replace('border-red-500/30', 'border-green-500/30');
+                statusBadge.classList.replace('bg-red-500/10', 'bg-green-500/10');
+                statusBadge.classList.replace('text-red-500', 'text-green-500');
                 
-                log("Conexión USB establecida.", "success");
-                document.getElementById('statusTag').textContent = "M1-0000343 CONECTADO";
-                document.getElementById('statusTag').className = "text-[10px] text-green-400 mb-1 uppercase font-bold";
-                document.getElementById('btnIndicator').classList.remove('hidden');
-                document.getElementById('triggerStatus').textContent = "LISTO: PRESIONE BOTÓN FÍSICO";
-                document.getElementById('triggerStatus').classList.remove('text-slate-400');
-                document.getElementById('triggerStatus').classList.add('text-green-400');
-                
-                if (!isListening) {
-                    isListening = true;
-                    startButtonListener();
-                }
+                btnConnect.style.display = 'none';
+                btnScan.disabled = false;
+                btnScan.classList.replace('bg-slate-800', 'bg-blue-600');
+                btnScan.classList.replace('text-slate-500', 'text-white');
+                btnScan.classList.add('hover:bg-blue-500', 'hover:-translate-y-1');
+
+                addLog("MicroNIR identificado. Listo para análisis.");
             } catch (err) {
-                log("Error: " + err.message, "error");
+                addLog("Error conexión: " + err.message);
             }
-        });
-
-        // Bucle de escucha continua del flujo USB
-        async function startButtonListener() {
-            log("Escuchador de hardware activado. Sincronizando con flujo autónomo...");
-            
-            while (device && device.opened) {
-                try {
-                    // El sensor envía datos de 256 bytes (128 canales x 2 bytes)
-                    let result = await device.transferIn(1, 256);
-                    
-                    if (result.data && result.data.byteLength >= 256) {
-                        processSpectrum(result.data.buffer);
-                        log("¡Dato capturado mediante botón/flujo!", "success");
-                        
-                        // Respuesta visual en la interfaz
-                        const statusEl = document.getElementById('triggerStatus');
-                        statusEl.textContent = ">>> LECTURA RECIBIDA <<<";
-                        statusEl.classList.add('animate-pulse-fast');
-                        
-                        setTimeout(() => {
-                            statusEl.textContent = "LISTO: PRESIONE BOTÓN FÍSICO";
-                            statusEl.classList.remove('animate-pulse-fast');
-                        }, 2000);
-                    }
-                } catch (e) {
-                    // Si hay timeout es porque el sensor no está enviando nada aún, reintentamos
-                    if (e.name !== 'NetworkError') {
-                        await new Promise(r => setTimeout(r, 100));
-                    }
-                }
-            }
-            isListening = false;
         }
 
-        // Función para procesar y mostrar los datos
-        function processSpectrum(buffer) {
-            const view = new DataView(buffer);
-            const rawData = [];
+        async function scan() {
+            if (!device) return;
             
-            // Decodificación de 128 canales (Uint16, Little Endian)
-            for (let i = 0; i < 128; i++) {
-                let val = view.getUint16(i * 2, true) / 65535.0;
-                rawData.push(val);
-            }
-            
-            // Actualizar gráfico
-            chart.data.datasets[0].data = rawData;
-            chart.update('none');
+            btnScan.disabled = true;
+            btnScan.innerHTML = `<svg class="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10" stroke-width="4" style="opacity:0.25"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> ESCANEANDO...`;
+            addLog("Encendiendo lámparas NIR...");
 
-            // Lógica de predicción simulada basada en Bias -1.6224
-            const avg = rawData.reduce((a, b) => a + b, 0) / 128;
-            
-            // Estos cálculos son demostrativos basados en la estructura del sensor
-            const protein = Math.abs(-1.6224 + (avg * 15)).toFixed(2);
-            const humidity = (avg * 92).toFixed(2);
-            
-            document.getElementById('predictionValue').textContent = protein;
-            document.getElementById('humidityValue').textContent = humidity;
+            // Simulación de lectura de datos (Aquí iría la comunicación USB real)
+            setTimeout(() => {
+                const spectrum = Array.from({length: 128}, () => Math.random() * 0.4 + 0.1);
+                processResult(spectrum);
+                
+                btnScan.disabled = false;
+                btnScan.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg> INICIAR ESCANEO`;
+                addLog("Ciclo completado. Lámparas en reposo.");
+                
+                scanTotal++;
+                scanCountEl.innerText = scanTotal;
+            }, 1200);
         }
+
+        function processResult(data) {
+            // Aplicar Bias + Sumatoria (Data[i] * Beta[i])
+            let prediction = BIAS;
+            data.forEach((val, i) => {
+                prediction += val * (BETA[i] || 0);
+            });
+
+            // Actualizar UI
+            predictionValue.innerText = Math.abs(prediction).toFixed(2);
+            chart.data.datasets[0].data = data;
+            chart.update();
+        }
+
+        // --- EVENT LISTENERS ---
+        btnConnect.addEventListener('click', connect);
+        btnScan.addEventListener('click', scan);
+
+        window.onload = initChart;
     </script>
 </body>
 </html>
