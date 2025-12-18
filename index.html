@@ -70,7 +70,6 @@
         let device;
         let chart;
 
-        // Función para registrar mensajes en la consola de la UI
         function addLog(msg, isError = false) {
             const logDiv = document.getElementById('log');
             if (logDiv) {
@@ -80,7 +79,6 @@
             }
         }
 
-        // Inicialización del gráfico al cargar el script
         const ctx = document.getElementById('spectrumChart').getContext('2d');
         chart = new Chart(ctx, {
             type: 'line',
@@ -104,10 +102,8 @@
             }
         });
 
-        // Conexión al dispositivo mediante WebUSB
         async function connectDevice() {
             try {
-                // Filtro para dispositivos FTDI/VIAVI comunes
                 device = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x0403 }] });
                 await device.open();
                 await device.selectConfiguration(1);
@@ -118,7 +114,6 @@
                 document.getElementById('btnScan').disabled = false;
                 addLog("Sensor detectado y reclamado correctamente.");
                 
-                // Intento de encendido de lámpara (Comando de Vendor)
                 await device.controlTransferOut({
                     requestType: 'vendor', recipient: 'device', request: 0x01, value: 0x0001, index: 0x0000
                 });
@@ -128,7 +123,6 @@
             }
         }
 
-        // Ejecución del escaneo y procesamiento de datos
         async function performScan() {
             const isSim = document.getElementById('simMode').checked;
             let spectrumData = new Float32Array(128);
@@ -138,35 +132,45 @@
                 spectrumData = spectrumData.map(() => Math.random() * 0.8);
             } else {
                 try {
+                    // Limpieza previa del buffer por si hay datos residuales
+                    await device.transferIn(1, 64).catch(() => {});
+
                     addLog("Iniciando integración en hardware...");
-                    // Enviar comando para iniciar integración
                     await device.controlTransferOut({
                         requestType: 'vendor', recipient: 'device', request: 0x02, value: 0x0000, index: 0x0000
                     });
 
-                    // Aumentamos el tiempo de espera por si el sensor es lento
-                    addLog("Esperando respuesta del hardware (1.5s)...");
-                    await new Promise(r => setTimeout(r, 1500));
+                    let result;
+                    let retries = 3;
+                    let success = false;
 
-                    addLog("Solicitando datos al buffer...");
-                    const result = await device.transferIn(1, 256); 
-                    
-                    // Validación de longitud de datos para evitar errores de DataView
-                    if (result.data.byteLength < 256) {
-                        // Extraemos los bytes recibidos para diagnóstico
-                        const hexData = Array.from(new Uint8Array(result.data.buffer))
+                    // Lógica de reintento para esperar al sensor lento
+                    while (retries > 0 && !success) {
+                        const waitTime = 2000; // 2 segundos entre intentos
+                        addLog(`Esperando procesamiento (${waitTime}ms)...`);
+                        await new Promise(r => setTimeout(r, waitTime));
+
+                        addLog("Solicitando espectro...");
+                        result = await device.transferIn(1, 256);
+
+                        if (result.data.byteLength >= 256) {
+                            success = true;
+                        } else {
+                            const hex = Array.from(new Uint8Array(result.data.buffer))
                                              .map(b => b.toString(16).padStart(2, '0'))
                                              .join(' ');
-                        
-                        addLog(`ERROR: Se esperaban 256 bytes pero llegaron ${result.data.byteLength}.`, true);
-                        addLog(`Contenido recibido (HEX): ${hexData}`, true);
-                        addLog("Sugerencia: Aumentar el tiempo de integración o verificar la alimentación del sensor.", true);
+                            addLog(`Sensor ocupado (${hex}). Reintentando...`, true);
+                            retries--;
+                        }
+                    }
+
+                    if (!success) {
+                        addLog("ERROR: Tiempo de espera agotado. El sensor no entregó datos.", true);
                         return;
                     }
 
                     const view = new DataView(result.data.buffer);
                     for (let i = 0; i < 128; i++) {
-                        // Lectura de 16 bits por píxel (Little Endian)
                         spectrumData[i] = view.getUint16(i * 2, true) / 65535.0;
                     }
                     addLog("Espectro recibido correctamente.");
@@ -178,7 +182,6 @@
             updateUI(spectrumData);
         }
 
-        // Actualización de la interfaz y cálculo PLS
         function updateUI(data) {
             chart.data.datasets[0].data = Array.from(data);
             chart.update();
@@ -190,7 +193,6 @@
             document.getElementById('resultValue').textContent = prediction.toFixed(4);
         }
 
-        // Registro de eventos
         document.getElementById('btnConnect').addEventListener('click', connectDevice);
         document.getElementById('btnScan').addEventListener('click', performScan);
     </script>
