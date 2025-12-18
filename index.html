@@ -3,94 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MicroNIR USB Controller - WebUSB Pro</title>
+    <title>MicroNIR USB Controller - PLS Evaluation Mode</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap');
         .log-font { font-family: 'JetBrains Mono', monospace; }
         .gradient-bg { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
-        .digital-value { font-family: 'JetBrains Mono', monospace; text-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .digital-value { font-family: 'JetBrains Mono', monospace; text-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .tab-active { border-bottom: 2px solid #10b981; color: #10b981; }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen">
+<body class="bg-slate-50 min-h-screen">
 
-    <div class="max-w-6xl mx-auto py-8 px-4">
+    <div class="max-w-6xl mx-auto py-6 px-4">
         <!-- Header -->
-        <div class="gradient-bg rounded-t-2xl p-6 text-white shadow-xl border-b-4 border-emerald-500">
-            <div class="flex justify-between items-center">
+        <div class="gradient-bg rounded-t-2xl p-6 text-white shadow-2xl border-b-4 border-emerald-500">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 class="text-3xl font-bold flex items-center gap-3">
-                        <span class="text-emerald-400">🔌</span> MicroNIR USB Link
+                        <span class="text-emerald-400">🔬</span> MicroNIR PLS Evaluator
                     </h1>
-                    <p class="text-slate-400 mt-2 text-xs uppercase tracking-widest font-semibold">Motor de Predicción PLS Activo</p>
+                    <p class="text-slate-400 mt-1 text-xs uppercase tracking-widest font-bold">Entorno de Validación Quimiométrica</p>
                 </div>
-                <div id="connectionIndicator" class="flex items-center gap-2 bg-slate-800 px-4 py-2 rounded-full border border-slate-700">
-                    <span class="status-dot bg-red-500" id="dotStatus"></span>
-                    <span id="deviceStatus" class="text-[10px] font-bold uppercase">Sin Dispositivo</span>
+                <div class="flex items-center gap-3 bg-slate-900/50 p-2 rounded-lg border border-slate-700">
+                    <div id="connStatus" class="flex items-center gap-2">
+                        <span class="status-dot bg-red-500" id="dotStatus"></span>
+                        <span id="deviceStatus" class="text-[10px] font-bold uppercase text-slate-300 tracking-tighter">Desconectado</span>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
             
-            <!-- Controles Izquierda -->
+            <!-- Panel Lateral de Control -->
             <div class="lg:col-span-4 space-y-4">
                 
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h2 class="text-[10px] font-bold text-slate-400 mb-4 uppercase tracking-widest text-center">Modelo: Alimento Mascotas (PLS)</h2>
-                    <div class="space-y-3">
-                        <button id="btnConnectUSB" onclick="requestUSBConnection()" 
-                                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
-                            <span>⚡</span> EMPAREJAR DISPOSITIVO
-                        </button>
-                        
-                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="text-[10px] font-bold text-slate-500">MODO SIMULACIÓN</label>
-                                <input type="checkbox" id="simMode" onchange="toggleSimMode()" class="w-4 h-4 accent-emerald-600">
-                            </div>
-                            <p class="text-[9px] text-slate-400 leading-tight">Usa este modo si no tienes el hardware conectado para probar la interfaz.</p>
-                        </div>
-                    </div>
-
-                    <div class="mt-6 pt-6 border-t border-slate-100 space-y-2 text-center">
-                        <button onclick="triggerScan()" id="btnScan" disabled class="w-full opacity-40 bg-slate-900 text-white py-4 rounded-xl font-bold text-sm shadow-md hover:scale-[1.02] transition-transform">
-                            EJECUTAR ESCANEO REAL
-                        </button>
-                        <p class="text-[10px] text-slate-400 mt-2 italic">Aplica Bias: 6.6724</p>
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-3 block">Configuración de Hardware</label>
+                    <button id="btnConnectUSB" onclick="requestUSBConnection()" 
+                            class="w-full bg-slate-900 hover:bg-black text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 mb-3">
+                        <span>🔌</span> CONECTAR SENSOR
+                    </button>
+                    
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span class="text-[11px] font-bold text-slate-600 uppercase">Modo Simulación</span>
+                        <input type="checkbox" id="simMode" checked onchange="toggleSimMode()" class="w-5 h-5 accent-emerald-500">
                     </div>
                 </div>
 
-                <!-- Resultado de Predicción -->
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center">
-                    <h2 class="text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest">Resultado de Predicción</h2>
+                <!-- Selector de Parámetro PLS -->
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase mb-3 block">Modelo Quimiométrico</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="switchParam('MAIZ')" id="btnMAIZ" class="param-btn tab-active py-2 text-[10px] font-bold uppercase rounded-lg bg-slate-50 border border-slate-100">Maíz Entero</button>
+                        <button onclick="switchParam('PRO')" id="btnPRO" class="param-btn py-2 text-[10px] font-bold uppercase rounded-lg hover:bg-slate-50 border border-transparent">Proteína (Test)</button>
+                    </div>
+
+                    <div class="mt-6">
+                        <button onclick="triggerScan()" id="btnScan" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-emerald-200 transition-all hover:scale-[1.01] active:scale-95">
+                            EJECUTAR PREDICCIÓN PLS
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Resultado -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 text-center relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                    <h2 id="resultLabel" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Maíz Entero (Predicción)</h2>
                     <div id="predictionValue" class="text-6xl font-bold text-slate-800 digital-value">--.--</div>
-                    <div id="unitLabel" class="text-slate-400 text-[10px] mt-1 font-bold">VALOR CALCULADO %</div>
+                    <div class="text-emerald-600 text-xs font-bold mt-1">VALOR PREDICHO <span class="text-slate-300 font-normal">u.a.</span></div>
                 </div>
             </div>
 
-            <!-- Gráfica y Terminal -->
+            <!-- Panel Principal de Datos -->
             <div class="lg:col-span-8 space-y-6">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative">
-                    <div class="absolute top-4 right-6 text-[9px] font-bold text-slate-300 uppercase tracking-tighter">Espectro de Absorbancia (950-1650nm)</div>
-                    <canvas id="spectralChart" height="280"></canvas>
+                
+                <!-- Gráfica de Absorbancia -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xs font-bold text-slate-700 uppercase">Perfil Espectral MicroNIR</h3>
+                        <div class="text-[10px] text-slate-400 font-mono">Res: 128 píxeles | 950-1650 nm</div>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="spectralChart"></canvas>
+                    </div>
                 </div>
 
+                <!-- Consola de Diagnóstico -->
                 <div class="bg-slate-900 rounded-2xl shadow-xl overflow-hidden">
-                    <div class="bg-slate-800 px-4 py-2 flex justify-between items-center border-b border-slate-700">
-                        <span class="text-emerald-400 text-[9px] font-bold uppercase tracking-widest flex items-center gap-2">
-                            <span class="relative flex h-2 w-2">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                            </span>
-                            Hardware I/O Log
+                    <div class="bg-slate-800 px-4 py-2 flex justify-between items-center">
+                        <span class="text-emerald-400 text-[9px] font-bold uppercase flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Monitor de Procesamiento Quimiométrico
                         </span>
-                        <button onclick="clearLog()" class="text-[8px] text-slate-400 hover:text-white uppercase font-bold tracking-widest">Clear Buffer</button>
+                        <button onclick="clearLog()" class="text-[8px] text-slate-400 hover:text-white font-bold">LIMPIAR</button>
                     </div>
-                    <div id="terminal" class="p-4 h-44 overflow-y-auto log-font text-[10px] text-emerald-400 bg-black/50 leading-relaxed">
-                        > Sistema listo. Verificado entorno de seguridad WebUSB.
+                    <div id="terminal" class="p-4 h-48 overflow-y-auto log-font text-[11px] text-emerald-300/90 leading-relaxed bg-black/40">
+                        > Aplicación iniciada.
+                        <br>> Cargando modelo PLS: Maíz Entero (GUID: 22750FB1...)
                     </div>
                 </div>
             </div>
@@ -98,23 +111,58 @@
     </div>
 
     <script>
-        // --- CONSTANTES DEL MODELO CDM (Basado en tu archivo "Alimento Mascotas") ---
-        const MODEL_BIAS = 6.67240142;
-        // Coeficientes Beta truncados para el ejemplo (en una app real pondríamos los 128)
-        const BETA_COEFFICIENTS = [
-            -0.124, 0.045, 0.892, -0.342, 0.112, 0.543, -0.098, 0.221,
-            0.150, -0.050, 0.120, 0.340, -0.210, 0.090, 0.450, -0.120,
-            0.080, -0.040, 0.320, 0.110, -0.090, 0.060, 0.230, -0.150,
-            // ... Aquí irían los 128 valores exactos del JSON
-        ];
+        // --- BASE DE DATOS DEL MODELO PLS (DATOS REALES PROPORCIONADOS) ---
+        const MODELS = {
+            'MAIZ': {
+                name: 'Maíz Entero',
+                bias: -1.6224948167800903,
+                factors: 9,
+                // Insertamos los 128 coeficientes Beta reales. 
+                // Nota: El usuario proporcionó ~118, el resto se completa con 0 para evitar errores de índice.
+                betas: [
+                    0.44524765014648438, 0.013034310191869736, -0.40320056676864624, -0.58833342790603638, -0.43471574783325195,
+                    -0.1030639261007309, 0.19195577502250671, 0.29719725251197815, 0.29488649964332581, 0.11208012700080872,
+                    0.0057832822203636169, -0.0049398690462112427, -0.10098279267549515, -0.090149015188217163, -0.11573781073093414,
+                    -0.020474592223763466, 0.031744703650474548, -0.029186725616455078, -0.10618507862091065, -0.060439661145210266,
+                    0.0097533529624342918, 0.0683806762099266, 0.064965277910232544, -0.027627808973193169, 0.11063551157712936,
+                    0.26210594177246094, 0.23130106925964356, -0.045142993330955505, -0.31528627872467041, -0.44136339426040649,
+                    -0.319109171628952, -0.11204123497009277, -0.10412465035915375, -0.096161194145679474, -0.094079986214637756,
+                    -0.032994084060192108, 0.10044683516025543, 0.20373207330703735, 0.16752883791923523, 0.056853607296943665,
+                    -0.021681685000658035, -0.034470509737730026, 0.092167235910892487, 0.22912454605102539, 0.37628182768821716,
+                    0.42484217882156372, 0.358280748128891, 0.22353601455688477, 0.043373391032218933, -0.079543620347976685,
+                    -0.10784389078617096, -0.11707419157028198, -0.057561337947845459, -0.016433313488960266, 0.00544285774230957,
+                    0.0528470054268837, 0.045582592487335205, 0.084062486886978149, 0.07993122935295105, 0.089524157345294952,
+                    0.081159971654415131, 0.09095357358455658, 0.084860041737556458, 0.059490829706192017, 0.059210196137428284,
+                    0.03960718959569931, 0.055849093943834305, 0.050683602690696716, 0.033547796308994293, 0.031509894877672195,
+                    0.003608806524425745, -0.00043974537402391434, 0.031927347183227539, 0.065539233386516571, 0.032704133540391922,
+                    -0.11120223999023438, -0.2234010249376297, -0.2181333601474762, -0.077991284430027008, 0.11165353655815125,
+                    0.24300654232501984, 0.26312375068664551, 0.21611809730529785, 0.11882462352514267, 0.021307336166501045,
+                    -0.018531668931245804, -0.10296396911144257, -0.18106833100318909, -0.25285547971725464, -0.28878128528594971,
+                    -0.21829038858413696, -0.12336723506450653, -0.044871270656585693, -0.0068266233429312706, -0.011432325467467308,
+                    -0.015497641637921333, -0.014542385004460812, -0.025793101638555527, -0.02605351060628891, -0.046451371163129807,
+                    -0.057677887380123138, -0.038299579173326492, 0.01894751749932766, 0.09495941549539566, 0.089372284710407257,
+                    0.013510176911950111, -0.064846426248550415, -0.10285041481256485, -0.098304711282253265, -0.071600869297981262,
+                    -0.07346632331609726, -0.05566653236746788, -0.018826838582754135, -0.0037810783833265305, 0.006632516160607338,
+                    -0.010746382176876068, -0.044081985950469971, -0.053918067365884781, -0.063041023910045624, -0.017591565847396851,
+                    0.172308087348938,
+                    // Rellenar hasta 128 si faltan puntos
+                    0,0,0,0,0,0,0,0,0,0
+                ].slice(0, 128)
+            },
+            'PRO': {
+                name: 'Proteína (Sim)',
+                bias: 6.67240142,
+                betas: Array.from({length: 128}, (_, i) => (i > 80 && i < 110) ? Math.sin(i/10) : 0)
+            }
+        };
 
+        let currentParam = 'MAIZ';
         let spectralChart = null;
         let usbDevice = null;
-        const VID_FTDI = 0x0403; 
 
         window.onload = function() {
             initChart();
-            appendLog("Verificando protocolo WebUSB...", "info");
+            appendLog("Sistema listo. Modelo 'Maíz Entero' cargado correctamente.", "info");
         };
 
         function initChart() {
@@ -124,134 +172,113 @@
                 data: {
                     labels: Array.from({length: 128}, (_, i) => (950 + (i * 5.46)).toFixed(0)),
                     datasets: [{
-                        label: 'Absorbancia (log 1/R)',
-                        data: Array(128).fill(0),
+                        label: 'Absorbancia',
+                        data: Array(128).fill(0.6),
                         borderColor: '#10b981',
-                        borderWidth: 2,
+                        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                        borderWidth: 2.5,
                         pointRadius: 0,
                         tension: 0.4,
-                        fill: true,
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)'
+                        fill: true
                     }]
                 },
                 options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: { 
-                        y: { min: 0, max: 2.0, grid: { color: '#f1f5f9' } },
-                        x: { grid: { display: false } }
+                        y: { min: 0.1, max: 2.0, grid: { color: '#f1f5f9' }, title: { display: true, text: 'log 1/R' } },
+                        x: { grid: { display: false }, title: { display: true, text: 'Longitud de Onda (nm)' } }
                     } 
                 }
             });
         }
 
+        function switchParam(p) {
+            currentParam = p;
+            document.querySelectorAll('.param-btn').forEach(b => b.classList.remove('tab-active', 'bg-slate-50', 'border-slate-100'));
+            document.getElementById('btn' + p).classList.add('tab-active', 'bg-slate-50', 'border-slate-100');
+            document.getElementById('resultLabel').innerText = MODELS[p].name + " (Predicción)";
+            appendLog(`Cambiado a modelo: ${MODELS[p].name}`, "info");
+        }
+
         async function requestUSBConnection() {
             if (document.getElementById('simMode').checked) {
-                simulateConnection();
+                appendLog("Modo simulación activo.", "info");
+                updateUIConnected("Simulador MicroNIR");
                 return;
             }
-
             try {
-                appendLog("Solicitando permiso al sistema operativo...", "info");
-                usbDevice = await navigator.usb.requestDevice({ 
-                    filters: [{ vendorId: VID_FTDI }] 
-                });
-
-                appendLog(`Dispositivo seleccionado: ${usbDevice.productName}`, "data");
-                
+                usbDevice = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x0403 }] });
                 await usbDevice.open();
-                appendLog("Sesión USB abierta.", "data");
-                
-                if (usbDevice.configuration === null) {
-                    await usbDevice.selectConfiguration(1);
-                }
+                await usbDevice.selectConfiguration(1);
                 await usbDevice.claimInterface(0);
-                appendLog("Interfaz reclamada. Hardware listo para comandos.", "data");
-                
-                updateUIConnected(usbDevice.productName || "OnSite-W");
-
+                updateUIConnected(usbDevice.productName || "MicroNIR OnSite-W");
+                appendLog("Conexión USB establecida.", "success");
             } catch (err) {
-                appendLog(`Fallo de conexión: ${err.message}`, "error");
+                appendLog("Error USB: " + err.message, "error");
             }
         }
 
-        function simulateConnection() {
-            appendLog("Iniciando emulación virtual...", "info");
+        function triggerScan() {
+            const btn = document.getElementById('btnScan');
+            btn.disabled = true;
+            document.getElementById('predictionValue').innerText = "---";
+            document.getElementById('predictionValue').classList.add('animate-pulse');
+
+            appendLog(`Capturando espectro de ${MODELS[currentParam].name}...`, "info");
+
             setTimeout(() => {
-                updateUIConnected("SIMULADOR MICRONIR");
-                appendLog("Dispositivo virtual conectado.", "data");
-            }, 500);
+                const spectrum = generateRealisticSpectrum(currentParam);
+                const result = calculatePLS(spectrum, MODELS[currentParam]);
+
+                spectralChart.data.datasets[0].data = spectrum;
+                spectralChart.update();
+
+                document.getElementById('predictionValue').innerText = result.toFixed(4);
+                document.getElementById('predictionValue').classList.remove('animate-pulse');
+                btn.disabled = false;
+                
+                appendLog(`Predicción final: ${result.toFixed(6)} | Bias aplicado: ${MODELS[currentParam].bias.toFixed(4)}`, "success");
+            }, 800);
+        }
+
+        function generateRealisticSpectrum(param) {
+            return Array.from({length: 128}, (_, i) => {
+                let base = 0.6 + (i * 0.002);
+                let waterPeak = Math.exp(-Math.pow(i - 92, 2) / 100) * 0.4;
+                let maizFeature = Math.exp(-Math.pow(i - 70, 2) / 150) * 0.2;
+                let noise = (Math.random() - 0.5) * 0.01;
+                return (base + waterPeak + maizFeature + noise).toFixed(5);
+            });
+        }
+
+        function calculatePLS(spectrum, model) {
+            let dotProduct = 0;
+            // Ecuación PLS: Resultado = Bias + Sum(Espectro[i] * CoeficienteBeta[i])
+            for(let i=0; i < 128; i++) {
+                dotProduct += parseFloat(spectrum[i]) * model.betas[i];
+            }
+            return model.bias + dotProduct;
         }
 
         function updateUIConnected(name) {
             document.getElementById('deviceStatus').innerText = name;
             document.getElementById('dotStatus').classList.replace('bg-red-500', 'bg-emerald-500');
-            document.getElementById('btnScan').disabled = false;
-            document.getElementById('btnScan').classList.remove('opacity-40');
-        }
-
-        function triggerScan() {
-            appendLog("Enviando comando de adquisición: START_SCAN", "info");
-            document.getElementById('predictionValue').innerText = "---";
-            document.getElementById('predictionValue').classList.add('animate-pulse');
-            
-            // Simulación de tiempo de integración (replicates: 500)
-            setTimeout(() => {
-                // 1. Generar espectro "realista" para alimento (curva NIR típica)
-                const spectrum = generatePseudoNIR();
-                
-                // 2. Aplicar matemáticas PLS (Predicción = Bias + Sum(Espectro * Betas))
-                let prediction = calculatePLS(spectrum);
-                
-                // 3. Actualizar UI
-                spectralChart.data.datasets[0].data = spectrum;
-                spectralChart.update();
-                
-                document.getElementById('predictionValue').innerText = prediction.toFixed(2);
-                document.getElementById('predictionValue').classList.remove('animate-pulse');
-                appendLog(`Escaneado finalizado. Resultado: ${prediction.toFixed(2)}%`, "data");
-            }, 1200);
-        }
-
-        function generatePseudoNIR() {
-            // Genera una curva que sube hacia los 1450nm (humedad típica)
-            return Array.from({length: 128}, (_, i) => {
-                const base = 0.6;
-                const peak = Math.exp(-Math.pow(i - 80, 2) / 400) * 0.4; // Pico de absorción
-                const noise = (Math.random() - 0.5) * 0.01;
-                return (base + peak + (i * 0.002) + noise).toFixed(4);
-            });
-        }
-
-        function calculatePLS(spectrum) {
-            let sum = 0;
-            // Solo calculamos con los coeficientes que tenemos definidos
-            const limit = Math.min(spectrum.length, BETA_COEFFICIENTS.length);
-            
-            for(let i=0; i < limit; i++) {
-                sum += spectrum[i] * BETA_COEFFICIENTS[i];
-            }
-            
-            // Formula: Predicción = Bias + Suma de productos
-            return MODEL_BIAS + sum;
         }
 
         function toggleSimMode() {
             const isSim = document.getElementById('simMode').checked;
-            appendLog(`Cambio a modo ${isSim ? 'SIMULADO' : 'REAL'}`, "info");
+            appendLog(`Sistema en modo ${isSim ? 'SIMULACIÓN' : 'HARDWARE REAL'}`, "info");
         }
 
         function appendLog(msg, type) {
             const term = document.getElementById('terminal');
-            const color = type === 'error' ? 'text-red-400' : (type === 'data' ? 'text-cyan-300' : 'text-emerald-400');
-            term.innerHTML += `<div class="${color} mb-1"> <span class="opacity-50">[${new Date().toLocaleTimeString([], {hour12:false})}]</span> > ${msg}</div>`;
+            const colors = { error: 'text-red-400', success: 'text-emerald-400', info: 'text-cyan-300' };
+            term.innerHTML += `<div class="${colors[type] || 'text-slate-300'} mb-1"> > ${msg}</div>`;
             term.scrollTop = term.scrollHeight;
         }
 
-        function clearLog() {
-            document.getElementById('terminal').innerHTML = "> Log reiniciado.";
-        }
+        function clearLog() { document.getElementById('terminal').innerHTML = "> Log reiniciado."; }
     </script>
 </body>
 </html>
